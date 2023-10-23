@@ -1,3 +1,5 @@
+use std::env;
+
 use log::log_enabled;
 use serde::Deserialize;
 
@@ -5,17 +7,12 @@ use serde::Deserialize;
 pub struct NeatoSettings {
     pub email: String,
     pub password: String,
-    #[serde(default = "default_poll_intervall")]
-    pub poll_intervall: u16, // seconds
-    #[serde(default = "default_cache_timeout")]
+    pub poll_interval: u16, // seconds
     pub cache_timeout: u16, // seconds
-    #[serde(default = "default_decode_state")]
     pub decode_state: bool,
 }
 
-fn default_decode_state() -> bool { false }
-
-fn default_poll_intervall() -> u16 {
+fn default_poll_interval() -> u16 {
     if log_enabled!(log::Level::Debug) {
         5 // seconds
     } else {
@@ -34,30 +31,10 @@ fn default_cache_timeout() -> u16 {
 #[derive(Clone, Deserialize, Debug)]
 pub struct MqttSettings {
     pub id: String,
-    #[serde(default = "default_host")]
     pub host: String,
-    #[serde(default = "default_port")]
     pub port: u16,
-    #[serde(default = "default_topic")]
     pub topic: String,
-    #[serde(default = "default_set_topic")]
     pub topic_set: String,
-}
-
-fn default_host() -> String {
-    "localhost".to_string()
-}
-
-fn default_port() -> u16 {
-    1883
-}
-
-fn default_topic() -> String {
-    "home/devices/neato/{id}".to_string()
-}
-
-fn default_set_topic() -> String {
-    format!("{}/set", default_topic())
 }
 
 #[derive(Clone, Deserialize, Debug)]
@@ -69,6 +46,14 @@ pub struct Settings {
 pub fn read_settings() -> Result<Settings, config::ConfigError> {
     config::Config::builder()
         .add_source(config::File::with_name("Settings"))
+        .set_default("mqtt.host", "localhost")?
+        .set_default("mqtt.port", 1883)?
+        .set_default("mqtt.topic", "home/devices/neato/{id}")?
+        .set_default("mqtt.topic_set", "home/devices/neato/{id}/set")?
+        .set_default("neato.poll_interval", default_poll_interval())?
+        .set_default("neato.cache_timeout", default_cache_timeout())?
+        .set_default("neato.decode_state", false)?
+        .set_override_option("MQTT_HOST", env::var("MQTT_HOST").ok())?
         .build()?
         .try_deserialize::<Settings>()
 }
