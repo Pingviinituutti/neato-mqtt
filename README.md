@@ -1,42 +1,21 @@
-# hue-mqtt
+# neato-mqtt
 
-This program synchronizes a Philips Hue bridge with an MQTT broker.
+This program synchronizes your Neato Botvac vacuum robots with an MQTT broker.
+
+It uses the Nucleo API to fetch available robots, read states and send commands. 
+The Nucleo API is documented on https://developers.neatorobotics.com/api/nucleo.
 
 ## Setup
 
 
 ### Quick start
 
-- Follow the [Philips Hue API V2 getting started guide](https://developers.meethue.com/develop/hue-api-v2/getting-started/)
-  (requires free user account) until you have obtained your bridge's IP address, and an app key ("username").
+- Take note of the username and password you use for your Neato account.
 - Copy `Settings.example.toml` to `Settings.toml`.
 - Edit `Settings.toml` with values matching your setup.
-- Try running hue-mqtt with `cargo run`. If your bridge runs recent enough firmware, the program should now launch without errors.
-- If you get SSL / certificate verification errors, run `openssl s_client -showcerts -connect <IP address of Hue bridge>`
-  and add the displayed self signed certificate into your Settings toml under `[hue_bridge]` and rerun the program. Example:
+- Try running neato-mqtt with `cargo run`. If your bridge runs recent enough firmware, the program should now launch without errors.
 
-  ```
-  [hue_bridge]
-
-  self_signed_cert = """
-  -----BEGIN CERTIFICATE-----
-  MIICOTCCAd+gAwIBAgIHF4j//kEd4DAKBggqhkjOPQQDAjA+MQswCQYDVQQGEwJO
-  TDEUMBIGA1UECgwLUGhpbGlwcyBIdWUxGTAXBgNVBAMMEDAwMTc4OGZmZmU0MTFk
-  ZTAwIhgPMjAxNzAxMDEwMDAwMDBaGA8yMDM4MDEwMTAwMDAwMFowPjELMAkGA1UE
-  BhMCTkwxFDASBgNVBAoMC1BoaWxpcHMgSHVlMRkwFwYDVQQDDBAwMDE3ODhmZmZl
-  NDExZGUwMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAErMLMdLgT1y7RAU78CkTX
-  Db2SY8c5Ltnkz1QAH4DeBJ8bqVB6duudFPUxO4qOW+rN1XC/putZAAfHcRFc3Op/
-  VKOBwzCBwDAMBgNVHRMBAf8EAjAAMB0GA1UdDgQWBBSklzU+PppzO7VFJwbcerGi
-  NmnJXDBsBgNVHSMEZTBjgBSklzU+PppzO7VFJwbcerGiNmnJXKFCpEAwPjELMAkG
-  A1UEBhMCTkwxFDASBgNVBAoMC1BoaWxpcHMgSHVlMRkwFwYDVQQDDBAwMDE3ODhm
-  ZmZlNDExZGUwggcXiP/+QR3gMA4GA1UdDwEB/wQEAwIFoDATBgNVHSUEDDAKBggr
-  BgEFBQcDATAKBggqhkjOPQQDAgNIADBFAiEAhcKx6Aq0qlEJep1jgDT1Aw7zkUsG
-  VqEF6VFI3VscmpkCIEqI+YyngggI/eInoGEFWHLW2ljIRZsmAOXa6JtWyavI
-  -----END CERTIFICATE-----
-  """
-  ```
-
-Now you should be able to view all your Hue devices through e.g. [MQTT Explorer](http://mqtt-explorer.com/) once connected to the same MQTT broker.
+Now you should be able to view your Neato Botvac robots on the MQTT broker, via e.g. [MQTT Explorer](http://mqtt-explorer.com/).
 
 ### Setting Up Mosquitto 
 
@@ -62,8 +41,8 @@ Now you should be able to view all your Hue devices through e.g. [MQTT Explorer]
 
 The default MQTT topics are as follows:
 
-- `/home/{lights,sensors}/hue/{id}`: Current state of the device serialized as JSON
-- `/home/lights/hue/{id}/set`: Sets state of the light to given JSON
+- `/home/devices/neato/{id}`: Current state of the device serialized as JSON
+- `/home/devices/neato/{id}/set`: Sets state of the light to given JSON
 
 ## State messages
 
@@ -92,7 +71,7 @@ Example light state:
   "brightness": 0.5,
   "cct": null,
   "color": {
-    "hue": 31.238605,
+    "neato": 31.238605,
     "saturation": 0.7411992,
     "value": 1
   },
