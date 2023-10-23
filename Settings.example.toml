@@ -1,29 +1,19 @@
 [mqtt]
 
 # ID used when connecting MQTT client, needs to be unique across MQTT clients connected to the broker
-id = "hue-mqtt"
+id = "neato-mqtt"
 
 # Domain name / IP address and port of the MQTT broker
-host = "localhost"
+# host = "localhost" # in case of local broker
+host = "mosquitto"
 port = 1883
 
-# MQTT topic where sensor updates will be published
-sensor_topic = "home/sensors/hue/{id}"
+# MQTT topic where updates will be published
+topic = "home/devices/neato/{id}"
 
-# MQTT topic where light updates will be published
-light_topic = "home/lights/hue/{id}"
+# received state to the devices
+topic_set = "home/devices/neato/{id}/set"
 
-# MQTT topic where if another client publishes a light update, we will send the
-# received light state to the Hue bridge
-light_topic_set = "home/lights/hue/{id}/set"
-
-[hue_bridge]
-
-# Domain name / IP address of the Hue bridge
-addr = "192.168.2.40"
-
-# App key or "username" for authenticating to the Hue bridge
-appkey = "0123456789abcdef0123456789abcdef0123456-"
-
-# Disable checks for hostname in Hue bridge certificate. You need to disable this unless the Hue bridge's hostname resolves to its IP address.
-disable_host_name_verification = true
+[neato]
+username = "your_email@address.com"
+password = "password"

@@ -1,25 +1,29 @@
 [package]
-name = "hue-mqtt"
+name = "neato-mqtt"
 version = "0.5.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+chrono = "0.4.31"
 color-eyre = "0.6.2"
 config = "0.13.3"
 derive_builder = "0.12.0"
-eventsource-client = "0.11.0"
 eyre = "0.6.8"
-futures = "0.3.28"
-hyper = { version = "0.14.27", features = ["full"] }
+hex = "0.4.3"
+hmac = "0.12.1"
 hyper-rustls = "0.24.1"
-palette = { version = "0.7.3", features = ["serializing"] }
+log = "0.4.20"
+pretty_env_logger = "0.5.0"
 rand = "0.8.5"
 rumqttc = "0.23.0"
 rustls-pemfile = "1.0.3"
 serde = { version = "1.0.189", features = ["derive"] }
 serde_json = "1.0.107"
 serde_path_to_error = "0.1.14"
+serde_repr = "0.1.16"
+sha2 = "0.10.8"
+surf = { version = "2.3.2", default-features=false, features = ["h1-client-rustls"] }
 tokio = { version = "1.33.0", features = ["macros", "full"] }
 tokio-rustls = { version = "0.24.1", features = ["dangerous_configuration"] }

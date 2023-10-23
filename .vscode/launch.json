@@ -7,15 +7,15 @@
 		{
 			"type": "lldb",
 			"request": "launch",
-			"name": "Debug executable 'hue-mqtt'",
+			"name": "Debug executable 'neato-mqtt'",
 			"cargo": {
 				"args": [
 					"build",
-					"--bin=hue-mqtt",
-					"--package=hue-mqtt"
+					"--bin=neato-mqtt",
+					"--package=neato-mqtt"
 				],
 				"filter": {
-					"name": "hue-mqtt",
+					"name": "neato-mqtt",
 					"kind": "bin"
 				}
 			},
@@ -25,16 +25,16 @@
 		{
 			"type": "lldb",
 			"request": "launch",
-			"name": "Debug unit tests in executable 'hue-mqtt'",
+			"name": "Debug unit tests in executable 'neato-mqtt'",
 			"cargo": {
 				"args": [
 					"test",
 					"--no-run",
-					"--bin=hue-mqtt",
-					"--package=hue-mqtt"
+					"--bin=neato-mqtt",
+					"--package=neato-mqtt"
 				],
 				"filter": {
-					"name": "hue-mqtt",
+					"name": "neato-mqtt",
 					"kind": "bin"
 				}
 			},
