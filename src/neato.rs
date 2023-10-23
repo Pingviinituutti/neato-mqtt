@@ -189,7 +189,7 @@ impl Neato {
     }
 
     pub async fn init_polling(&self) -> color_eyre::Result<()> {
-        let poll_rate = Duration::from_millis(self.settings.poll_intervall as u64 * 1000);
+        let poll_rate = Duration::from_millis(self.settings.poll_interval as u64 * 1000);
         let neato = self.clone();
         let mqtt_client = self.mqtt_client.clone();
 
