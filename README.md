@@ -46,51 +46,27 @@ The default MQTT topics are as follows:
 
 ## State messages
 
-MQTT messages follow this structure, serialized as JSON:
+Example robot state in JSON:
 
-```
-struct MqttDevice {
-    pub id: String,
-    pub name: String,
-    pub power: Option<bool>,
-    pub brightness: Option<f32>,
-    pub cct: Option<f32>,
-    pub color: Option<Hsv>,
-    pub transition_ms: Option<f32>,
-    pub sensor_value: Option<String>,
-}
-```
-
-Example light state:
-
-```
+```json
 {
-  "id": "d68b5135-0e71-4333-ad3d-07b635144422",
-  "name": "Office",
-  "power": null,
-  "brightness": 0.5,
-  "cct": null,
-  "color": {
-    "neato": 31.238605,
-    "saturation": 0.7411992,
-    "value": 1
-  },
-  "transition_ms": null,
-  "sensor_value": null
-}
-```
-
-Example sensor state (2nd dimmer switch button pressed in):
-
-```
-{
-  "id": "a8f6b7e3-80a1-45ee-9af6-ef9b6204c72d",
-  "name": "Office switch button 2",
-  "power": null,
-  "brightness": null,
-  "cct": null,
-  "color": null,
-  "transition_ms": null,
-  "sensor_value": "true"
+  "mac_address": "123456789012",
+  "model": "BotVacD6Connected",
+  "name": "Vacuum",
+  "nucleo_url": "https://nucleo.neatocloud.com:4443",
+  "serial": "12345678-123456789012",
+  "state": {
+    "alert": null,
+    "error": null,
+    "details": {
+      "isCharging": true,
+      "isDocked": true,
+      "isScheduleEnabled": true,
+      "dockHasBeenSeen": false,
+      "charge": 99
+    },
+    "state": 1,
+    "action": 0
+  }
 }
 ```
