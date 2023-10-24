@@ -21,8 +21,6 @@ async fn main() -> Result<()> {
     let mqtt_client = mqtt::init(&settings.mqtt.clone()).await?;
     let neato = Neato::new(mqtt_client, &settings.neato.clone())
         .init().await?;
-    neato.update_states().await?;
-    neato.update_states().await?;
 
     tokio::signal::ctrl_c().await?;
 
