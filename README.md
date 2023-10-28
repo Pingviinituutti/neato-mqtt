@@ -17,6 +17,19 @@ The Nucleo API is documented on https://developers.neatorobotics.com/api/nucleo.
 
 Now you should be able to view your Neato Botvac robots on the MQTT broker, via e.g. [MQTT Explorer](http://mqtt-explorer.com/).
 
+To make the robot(s) clean and other actions, simply publish a message under `home/devices/neato/{id}/set`:
+
+``` json
+{
+  "action": "StartCleaning",
+}
+```
+
+If you publish your action under `home/devices/neato/set`, the action will be sent to all robots under `home/devices/neato/` (or based on what `topic` and `set_topic` settings you have in `Settings.toml`).
+
+Available messages are listed on https://developers.neatorobotics.com/api/robot-remote-protocol/housecleaning. 
+Note that the `action` value should start with an uppercase letter (TODO fix this).
+
 ### Setting Up Mosquitto 
 
 - Ensure Docker is installed and running

@@ -35,7 +35,25 @@ pub struct MqttSettings {
     pub host: String,
     pub port: u16,
     pub topic: String,
-    pub topic_set: String,
+    pub set_topic: String,
+}
+
+impl MqttSettings {
+    // pub fn get_topic_with_wildcard(&self) -> String {
+    //     // Return the topic with `{id}` replaced with `+`
+    //     self.topic.replace("{id}", "+")
+    // }
+    pub fn get_topic_with_id_as_set(&self) -> String {
+        self.topic.replace("{id}", "set")
+    }
+    // pub fn get_topic_without_id(&self) -> String {
+    //     // Return the topic with `{id}` removed
+    //     self.topic.replace("{id}", "")
+    // }
+    pub fn get_set_topic_with_wildcard(&self) -> String {
+        // Return the topic with `{id}` replaced with `+`
+        self.set_topic.replace("{id}", "+")
+    }
 }
 
 #[derive(Clone, Deserialize, Debug)]
@@ -50,7 +68,7 @@ pub fn read_settings() -> Result<Settings, config::ConfigError> {
         .set_default("mqtt.host", "localhost")?
         .set_default("mqtt.port", 1883)?
         .set_default("mqtt.topic", "home/devices/neato/{id}")?
-        .set_default("mqtt.topic_set", "home/devices/neato/{id}/set")?
+        .set_default("mqtt.set_topic", "home/devices/neato/{id}/set")?
         .set_default("neato.poll_interval", default_poll_interval())?
         .set_default("neato.cache_timeout", default_cache_timeout())?
         .set_default("neato.decode_state", false)?

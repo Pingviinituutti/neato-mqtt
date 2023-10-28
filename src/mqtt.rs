@@ -1,13 +1,13 @@
 use eyre::Result;
 use rand::{distributions::Alphanumeric, Rng};
-use rumqttc::{AsyncClient, MqttOptions, QoS};
+use rumqttc::{AsyncClient, ConnectionError, Event, MqttOptions, Publish, QoS};
 use serde::{Deserialize, Serialize};
-use std::{time::Duration, sync::Arc};
+use std::{sync::Arc, time::Duration};
 use tokio::{sync::watch::Receiver, task};
 
 use log::{debug, error};
 
-use crate::{settings::MqttSettings, neato::RobotCmd};
+use crate::{neato::RobotCmd, settings::MqttSettings};
 
 #[derive(Clone, Deserialize, Serialize, Debug)]
 pub struct MqttSetMessage {
@@ -29,13 +29,43 @@ pub struct MqttClient {
     pub settings: MqttSettings,
 }
 
-pub fn get_id_from_topic(topic: &String, topic_set: &String) -> Result<String> {
-    if let Some((start, end)) = topic_set.split_once("{id}") {
+pub fn get_id_from_topic(topic: &String, set_topic: &str) -> Result<String> {
+    if let Some((start, end)) = set_topic.split_once("{id}") {
         Ok(topic.replace(start, "").replace(end, ""))
     } else {
         error!("Could not get id from topic: '{}'", topic);
         Err(eyre::eyre!("Could not get id from topic: '{}'", topic))
     }
+}
+
+struct NotificationResult {
+    message: Option<Publish>,
+}
+
+async fn handle_notification(
+    client: &AsyncClient,
+    notification: Result<Event, ConnectionError>,
+    mqtt_settings: &MqttSettings,
+) -> Result<NotificationResult> {
+    debug!("Notification: {:?}", notification);
+    match notification? {
+        rumqttc::Event::Incoming(rumqttc::Packet::ConnAck(_)) => {
+            client
+                .subscribe(mqtt_settings.get_set_topic_with_wildcard(), QoS::AtMostOnce)
+                .await?;
+            client
+                .subscribe(mqtt_settings.get_topic_with_id_as_set(), QoS::AtMostOnce)
+                .await?;
+            // return Ok(NotificationResult{message: None})
+        }
+        rumqttc::Event::Incoming(rumqttc::Packet::Publish(msg)) => {
+            return Ok(NotificationResult { message: Some(msg) })
+        }
+        _ => {}
+    }
+
+    Ok(NotificationResult { message: None })
+    // Err(eyre::eyre!("Could not get message"))
 }
 
 pub async fn init(mqtt_settings: &MqttSettings) -> Result<MqttClient> {
@@ -60,6 +90,7 @@ pub async fn init(mqtt_settings: &MqttSettings) -> Result<MqttClient> {
 
     let (tx, rx) = tokio::sync::watch::channel(None);
 
+    // Listen on set_topic, for example `home/devices/neato/{id}/set`
     task::spawn(async move {
         loop {
             let notification = eventloop.poll().await;
@@ -67,47 +98,52 @@ pub async fn init(mqtt_settings: &MqttSettings) -> Result<MqttClient> {
             let id = subscribe_settings.id.clone();
             let config_clone = Arc::clone(&config_clone);
 
-            let res = (|| async {
-                match notification? {
-                    rumqttc::Event::Incoming(rumqttc::Packet::ConnAck(_)) => {
-                        subscribe_client
-                            .subscribe(config_clone.topic_set.replace("{id}", "+"), QoS::AtMostOnce)
-                            .await?;
-                    }
-                    rumqttc::Event::Incoming(rumqttc::Packet::Publish(msg)) => {
-                        debug!("Reveiced MQTT Publish for topic: {:?}", &msg.topic);
-                        let id = get_id_from_topic(&msg.topic, &config_clone.topic_set)?;
-                        debug!("Id is: {:?}", id);
-                        debug!("Payload is: {:?}", &msg.payload);
-                        let payload: MqttSetMessage = serde_json::from_slice(&msg.payload)?;
-                        let device  = {SendAction {
-                            id: id,
+            let res =
+                handle_notification(&subscribe_client, notification, &subscribe_settings.clone())
+                    .await;
+
+            match res {
+                Ok(NotificationResult { message: Some(msg) }) => {
+                    debug!("Reveiced MQTT Publish for topic: {:?}", &msg.topic);
+                    let id = get_id_from_topic(&msg.topic, &config_clone.set_topic).unwrap();
+                    debug!("Id is: {:?}", id);
+                    let payload: MqttSetMessage = match serde_json::from_slice(&msg.payload) {
+                        Ok(pl) => pl,
+                        Err(e) => {
+                            error!("Could not parse JSON payload: {:?}", e);
+                            continue;
+                        }
+                    };
+                    debug!("Payload is: {:?}", payload);
+                    let device = {
+                        SendAction {
+                            id,
                             action: payload.action,
-                        }};
-                        tx.send(Some(device))?;
-                    }
-                    _ => {}
+                        }
+                    };
+                    tx.send(Some(device)).expect("Failed to send message");
                 }
-
-                Ok::<(), Box<dyn std::error::Error + Sync + Send>>(())
-            })()
-            .await;
-
-            if let Err(e) = res {
-                error!(
-                    target: &id.to_string(),
-                    "MQTT error: {:?}", e
-                );
-                tokio::time::sleep(Duration::from_secs(1)).await;
+                Err(e) => {
+                    error!(
+                        target: &id.to_string(),
+                        "MQTT error: {:?}", e
+                    );
+                    tokio::time::sleep(Duration::from_secs(1)).await;
+                }
+                _ => {}
             }
         }
     });
+
+    // listen on the topic set, for example `home/devices/neato/set`
+    // If an action is received here, the command should affect all devices
+    // TODO: implement this
 
     Ok(MqttClient {
         client,
         rx,
         topic: mqtt_settings.topic.clone(),
-        set_topic: mqtt_settings.topic_set.clone(),
+        set_topic: mqtt_settings.set_topic.clone(),
         settings: mqtt_settings.clone(),
     })
 }

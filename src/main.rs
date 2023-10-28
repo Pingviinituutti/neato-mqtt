@@ -1,5 +1,5 @@
-extern crate pretty_env_logger;
 extern crate log;
+extern crate pretty_env_logger;
 
 mod mqtt;
 mod neato;
@@ -20,7 +20,8 @@ async fn main() -> Result<()> {
     // let mqtt_client = mk_mqtt_client(&settings).await?;
     let mqtt_client = mqtt::init(&settings.mqtt.clone()).await?;
     let _neato = Neato::new(mqtt_client, &settings.neato.clone())
-        .init().await?;
+        .init()
+        .await?;
 
     tokio::signal::ctrl_c().await?;
 

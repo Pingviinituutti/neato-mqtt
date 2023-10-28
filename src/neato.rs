@@ -15,8 +15,11 @@ use sha2::Sha256;
 
 use log::{debug, error, info};
 
-use crate::{neato_types::{HouseCleaningParams, NeatoState, PublicRobot, Robot, RobotMessage}, mqtt::SendAction};
 use crate::{mqtt::MqttClient, settings::NeatoSettings};
+use crate::{
+    mqtt::SendAction,
+    neato_types::{HouseCleaningParams, NeatoState, PublicRobot, Robot, RobotMessage},
+};
 
 impl Robot {
     pub async fn publish(&self, mqtt_client: MqttClient) -> color_eyre::Result<()> {
@@ -120,6 +123,10 @@ impl Neato {
             last_state_update: Arc::new(Mutex::new(None)),
         }
     }
+
+    // pub async fn get_robot_names(&self) -> Vec<String> {
+    //     self.robots.lock().await.iter().map(|r| r.name.clone()).collect()
+    // }
 
     pub async fn init(mut self) -> color_eyre::Result<Neato> {
         info!("Initializing Neato cloud integration");
@@ -225,7 +232,6 @@ impl Neato {
     }
 
     async fn init_react_to_subscription_messages(&self) -> color_eyre::Result<()> {
-
         let mut s = self.clone();
 
         tokio::spawn(async move {
@@ -236,27 +242,59 @@ impl Neato {
                     .await
                     .expect("Expected rx channel never to close");
                 let msg = s.mqtt_client.rx.borrow().clone();
-    
+
                 println!("Received update instruction! Device: {:?}", msg);
-    
+
                 match msg {
-                    Some(SendAction { action: RobotCmd::GetRobotState, .. }) => {
+                    Some(SendAction {
+                        action: RobotCmd::GetRobotState,
+                        ..
+                    }) => {
                         debug!("We don't do state updates from set messages");
                     }
                     Some(SendAction { action, id }) => {
-                        let robot = s.robots
-                            .lock().await
-                            .clone()
-                            .into_iter()
-                            .find(|r| r.name == id)
-                            .unwrap();
+                        let robots = match id.as_str() {
+                            "set" => s.robots.lock().await.clone(),
+                            _ => {
+                                // Filter out all robots that don't match the id
+                                s.robots
+                                    .lock()
+                                    .await
+                                    .clone()
+                                    .into_iter()
+                                    .filter(|r| r.name == id)
+                                    .collect()
+                            }
+                        };
+                        // let robot = s.robots
+                        //     .lock().await
+                        //     .clone()
+                        //     .into_iter()
+                        //     .find(|r| r.name == id)
+                        //     .unwrap();
                         // let r = robot.clone().unwrap();
                         // info!("{}: Starting cleaning", id);
-                        info!("{}: {}", robot.name, action);
+                        info!("Command to be sent: {}", action);
+                        info!(
+                            "Affected robots: {:?}",
+                            robots
+                                .iter()
+                                .map(|r| r.name.clone())
+                                .collect::<Vec<String>>()
+                        );
+                        if robots.is_empty() {
+                            error!(
+                                "No robots found with name \"{}\". Aborting sending command",
+                                id
+                            );
+                            continue;
+                        }
                         if s.settings.dry_run {
-                            info!("Dry run enabled, not sending command");
+                            info!("Setting neato.dry_run enabled, not sending command");
                         } else {
-                            send_command(&robot, &action).await.unwrap();
+                            for robot in robots {
+                                send_command(&robot, &action).await.unwrap();
+                            }
                         }
                     }
                     _ => {}

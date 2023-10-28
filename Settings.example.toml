@@ -13,7 +13,7 @@ id = "neato-mqtt"
 
 # received state to the devices
 # Uncomment if you want to change the set topic
-# topic_set = "home/devices/neato/{id}/set"
+# set_topic = "home/devices/neato/{id}/set"
 
 [neato]
 username = "your_email@address.com"
