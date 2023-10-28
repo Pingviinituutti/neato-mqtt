@@ -10,6 +10,7 @@ pub struct NeatoSettings {
     pub poll_interval: u16, // seconds
     pub cache_timeout: u16, // seconds
     pub decode_state: bool,
+    pub dry_run: bool,
 }
 
 fn default_poll_interval() -> u16 {
@@ -53,7 +54,8 @@ pub fn read_settings() -> Result<Settings, config::ConfigError> {
         .set_default("neato.poll_interval", default_poll_interval())?
         .set_default("neato.cache_timeout", default_cache_timeout())?
         .set_default("neato.decode_state", false)?
-        .set_override_option("MQTT_HOST", env::var("MQTT_HOST").ok())?
+        .set_default("neato.dry_run", false)?
+        .set_override_option("mqtt.host", env::var("MQTT_HOST").ok())?
         .build()?
         .try_deserialize::<Settings>()
 }

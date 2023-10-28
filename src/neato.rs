@@ -15,7 +15,7 @@ use sha2::Sha256;
 
 use log::{debug, error, info};
 
-use crate::neato_types::{HouseCleaningParams, NeatoState, PublicRobot, Robot, RobotMessage};
+use crate::{neato_types::{HouseCleaningParams, NeatoState, PublicRobot, Robot, RobotMessage}, mqtt::SendAction};
 use crate::{mqtt::MqttClient, settings::NeatoSettings};
 
 impl Robot {
@@ -57,7 +57,7 @@ const BASE_URL: &str = "https://beehive.neatocloud.com";
 
 type HmacSha256 = Hmac<Sha256>;
 
-#[derive(PartialEq)]
+#[derive(Clone, PartialEq, Deserialize, Serialize, Debug)]
 pub enum RobotCmd {
     StartCleaning,
     StopCleaning,
@@ -122,7 +122,7 @@ impl Neato {
     }
 
     pub async fn init(mut self) -> color_eyre::Result<Neato> {
-        info!("Initializing Neato MQTT client");
+        info!("Initializing Neato cloud integration");
         self.robots = Arc::new(AsyncMutex::new(get_robots(&self.settings.clone()).await?));
         // let robots_with_states = update_robot_states(get_robots(neato_settings).await?).await?;
 
@@ -132,9 +132,7 @@ impl Neato {
             debug!("Robot info: {:?}", robot);
         }
 
-        // let neato = self.clone();
-        // self.clone().update_states().await?;
-        // tokio::spawn(async { poll_robots_until_all_idle(neato).await });
+        // Start the state polling loop
         match self.init_polling().await {
             Ok(_) => (),
             Err(err) => {
@@ -142,37 +140,19 @@ impl Neato {
             }
         }
 
-        info!("Neato initialized");
+        match self.init_react_to_subscription_messages().await {
+            Ok(_) => (),
+            Err(err) => {
+                error!("Error initializing subscription messages: {}", err);
+            }
+        };
+
+        info!("Neato connection initialized");
 
         Ok(self)
     }
 
-    pub async fn update_states(&self) -> color_eyre::Result<()> {
-        // don't update states if we've done it recently
-        // let last_update = self.last_state_update.lock().unwrap().clone();
-        match self.last_state_update.try_lock() {
-            Ok(last_state_update) => {
-                if last_state_update.is_some()
-                    && (Utc::now() - last_state_update.unwrap()).num_seconds()
-                        < self.settings.cache_timeout as i64
-                {
-                    let ms_ago = (Utc::now() - last_state_update.unwrap()).num_milliseconds();
-                    info!(
-                        "Skipping update, last update was only {:.2} seconds ago.",
-                        ms_ago as f64 / 1000.0
-                    );
-                    return Ok(());
-                } else {
-                    info!("Updating robot states");
-                }
-            }
-            Err(_) => {
-                info!("Skipping update, something else seems to be updating the state");
-                return Ok(());
-            }
-        }
-
-        // Now we lock the robots again and update the state of each robot
+    async fn force_update_states(&self) -> color_eyre::Result<()> {
         for robot in self.robots.lock().await.iter_mut() {
             debug!("Robot info before update: {:?}", robot);
 
@@ -188,7 +168,38 @@ impl Neato {
         Ok(())
     }
 
-    pub async fn init_polling(&self) -> color_eyre::Result<()> {
+    async fn update_states(&self) -> color_eyre::Result<()> {
+        // don't update states if we've done it recently
+        // let last_update = self.last_state_update.lock().unwrap().clone();
+        match self.last_state_update.try_lock() {
+            Ok(last_state_update) => {
+                if last_state_update.is_some()
+                    && (Utc::now() - last_state_update.unwrap()).num_seconds()
+                        < self.settings.cache_timeout as i64
+                {
+                    let ms_ago = (Utc::now() - last_state_update.unwrap()).num_milliseconds();
+                    info!(
+                        "Skipping update, last update was only {:.2} seconds ago.",
+                        ms_ago as f64 / 1000.0
+                    );
+                    return Ok(());
+                } else {
+                    debug!("Updating robot states");
+                }
+            }
+            Err(_) => {
+                info!("Skipping update, something else seems to be updating the state");
+                return Ok(());
+            }
+        }
+
+        // Now we lock the robots again and update the state of each robot
+        self.force_update_states().await?;
+
+        Ok(())
+    }
+
+    async fn init_polling(&self) -> color_eyre::Result<()> {
         let poll_rate = Duration::from_millis(self.settings.poll_interval as u64 * 1000);
         let neato = self.clone();
         let mqtt_client = self.mqtt_client.clone();
@@ -210,6 +221,49 @@ impl Neato {
                 }
             }
         });
+        Ok(())
+    }
+
+    async fn init_react_to_subscription_messages(&self) -> color_eyre::Result<()> {
+
+        let mut s = self.clone();
+
+        tokio::spawn(async move {
+            loop {
+                s.mqtt_client
+                    .rx
+                    .changed()
+                    .await
+                    .expect("Expected rx channel never to close");
+                let msg = s.mqtt_client.rx.borrow().clone();
+    
+                println!("Received update instruction! Device: {:?}", msg);
+    
+                match msg {
+                    Some(SendAction { action: RobotCmd::GetRobotState, .. }) => {
+                        debug!("We don't do state updates from set messages");
+                    }
+                    Some(SendAction { action, id }) => {
+                        let robot = s.robots
+                            .lock().await
+                            .clone()
+                            .into_iter()
+                            .find(|r| r.name == id)
+                            .unwrap();
+                        // let r = robot.clone().unwrap();
+                        // info!("{}: Starting cleaning", id);
+                        info!("{}: {}", robot.name, action);
+                        if s.settings.dry_run {
+                            info!("Dry run enabled, not sending command");
+                        } else {
+                            send_command(&robot, &action).await.unwrap();
+                        }
+                    }
+                    _ => {}
+                };
+            }
+        });
+
         Ok(())
     }
 }
@@ -247,8 +301,8 @@ async fn send_command(robot: &Robot, cmd: &RobotCmd) -> Result<String> {
     let robot_message = cmd.build_robot_message();
 
     debug!(
-        "Sending command: {:?} to robot {}",
-        robot_message, robot.name
+        "Robot name {}, Sending command: {:?}",
+        robot.name, robot_message
     );
 
     let body = serde_json::to_string(&robot_message)?;
