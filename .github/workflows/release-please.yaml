@@ -17,4 +17,3 @@ jobs:
         with:
           release-type: rust
           package-name: ${{ github.repository }}
-          token: ${{ secrets.ACTIONS_BOT_TOKEN }}
