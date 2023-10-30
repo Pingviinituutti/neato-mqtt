@@ -21,14 +21,13 @@ To make the robot(s) clean and other actions, simply publish a message under `ho
 
 ``` json
 {
-  "action": "StartCleaning",
+  "action": "StartCleaning", // also works with "startCleaning or "start_cleaning
 }
 ```
 
 If you publish your action under `home/devices/neato/set`, the action will be sent to all robots under `home/devices/neato/` (or based on what `topic` and `set_topic` settings you have in `Settings.toml`).
 
 Available messages are listed on https://developers.neatorobotics.com/api/robot-remote-protocol/housecleaning. 
-Note that the `action` value should start with an uppercase letter (TODO fix this).
 
 ### Setting Up Mosquitto 
 

@@ -62,10 +62,15 @@ type HmacSha256 = Hmac<Sha256>;
 
 #[derive(Clone, PartialEq, Deserialize, Serialize, Debug)]
 pub enum RobotCmd {
+    #[serde(alias = "startCleaning", alias = "start_cleaning")]
     StartCleaning,
+    #[serde(alias = "stopCleaning", alias = "stop_cleaning")]
     StopCleaning,
+    #[serde(alias = "pauseCleaning", alias = "pause_cleaning")]
     PauseCleaning,
+    #[serde(alias = "resumeCleaning", alias = "resume_cleaning")]
     ResumeCleaning,
+    #[serde(alias = "sendToBase", alias = "send_to_base")]
     SendToBase,
     GetRobotState,
 }
@@ -254,6 +259,7 @@ impl Neato {
                     }
                     Some(SendAction { action, id }) => {
                         let robots = match id.as_str() {
+                            // if id is "set", send to all robots
                             "set" => s.robots.lock().await.clone(),
                             _ => {
                                 // Filter out all robots that don't match the id
@@ -266,22 +272,8 @@ impl Neato {
                                     .collect()
                             }
                         };
-                        // let robot = s.robots
-                        //     .lock().await
-                        //     .clone()
-                        //     .into_iter()
-                        //     .find(|r| r.name == id)
-                        //     .unwrap();
-                        // let r = robot.clone().unwrap();
-                        // info!("{}: Starting cleaning", id);
-                        info!("Command to be sent: {}", action);
-                        info!(
-                            "Affected robots: {:?}",
-                            robots
-                                .iter()
-                                .map(|r| r.name.clone())
-                                .collect::<Vec<String>>()
-                        );
+
+                        info!("Sending command: {}", action);
                         if robots.is_empty() {
                             error!(
                                 "No robots found with name \"{}\". Aborting sending command",
@@ -289,6 +281,13 @@ impl Neato {
                             );
                             continue;
                         }
+                        info!(
+                            "Affected robots: {:?}",
+                            robots
+                                .iter()
+                                .map(|r| r.name.clone())
+                                .collect::<Vec<String>>()
+                        );
                         if s.settings.dry_run {
                             info!("Setting neato.dry_run enabled, not sending command");
                         } else {
